@@ -14,7 +14,7 @@ function love.load()
 
     -- Portrait (optional)
     portrait = love.graphics.newImage("assets/sprites/gokuportrait.png")
-
+    portrait:setFilter("nearest", "nearest")
     -- Platforms
     table.insert(platforms, {x = 0, y = 650, w = Pc[1], h = 50})   -- ground
     table.insert(platforms, {x = 400, y = 500, w = 200, h = 30})
@@ -70,7 +70,7 @@ end
 function love.draw()
     -- Draw portrait
     if portrait then
-        love.graphics.draw(portrait, 20, 20, 0, 2, 2)
+        love.graphics.draw(portrait, 20, 20, 0, 4, 4)
     end
 
     -- Draw platforms

@@ -8,27 +8,30 @@ function Player.new(x, y)
     self.x = x
     self.y = y
     self.frameWidth = 32
-    self.frameHeight = 32
+    self.frameHeight = 46
     self.scale = 3                 -- sprite scaling
     self.w = self.frameWidth * self.scale   -- collision width
     self.h = self.frameHeight * self.scale  -- collision height
     self.speed = 200
     self.vy = 0
     self.onGround = false
+    self.facing = 1 -- 1 = right, -1 = left
 
     -- Gravity
     self.gravity = 800
 
     -- Load sprite sheet
+    
     self.sprite = love.graphics.newImage("assets/sprites/goku_sprite.png")
-
+    self.sprite:setFilter("nearest", "nearest")
     -- Build quads
     self:generateQuads()
 
     -- Animations table
     self.animations = {
-        idle = self:createAnimation(1, 4, 0.2),
-        run  = self:createAnimation(5, 8, 0.1),
+        idle = self:createAnimation(1,3, 0.2),
+        run  = self:createAnimation(4, 6, 0.2),
+        jump = self:createAnimation(7,9,0.2),
     }
 
     self.currentAnim = self.animations.idle
@@ -78,13 +81,15 @@ function Player:update(dt, platforms)
     -- Horizontal movement
     local moving = false
     if love.keyboard.isDown("left", "a") then
-        self.x = self.x - self.speed * dt
-        self:setAnimation("run")
-        moving = true
+    self.x = self.x - self.speed * dt
+    self.facing = 1
+    self:setAnimation("run")
+    moving = true
     elseif love.keyboard.isDown("right", "d") then
-        self.x = self.x + self.speed * dt
-        self:setAnimation("run")
-        moving = true
+    self.x = self.x + self.speed * dt
+    self.facing = -1
+    self:setAnimation("run")
+    moving = true
     else
         self:setAnimation("idle")
     end
@@ -132,13 +137,16 @@ end
 -- Draw player
 function Player:draw()
     love.graphics.setColor(1, 1, 1)
+
+    local scaleX = self.scale * self.facing
+
     love.graphics.draw(
         self.sprite,
         self.quads[self.animFrame],
-        self.x,
+        self.x + (self.facing == -1 and self.frameWidth * self.scale or 0),
         self.y,
         0,
-        self.scale,
+        scaleX,
         self.scale
     )
 end
