@@ -1,37 +1,57 @@
 local Player = {}
 Player.__index = Player
 
+-----------------------------
+-- ANIMATION HELPERS FIRST --
+-----------------------------
+
+function Player:createAnimation(startFrame, finishFrame, speed, facing)
+    return {start = startFrame, finish = finishFrame, speed = speed, facing = facing}
+end
+
+function Player:setAnimation(name)
+    if self.currentAnim ~= self.animations[name] then
+        self.currentAnim = self.animations[name]
+        self.animFrame = self.currentAnim.start
+        self.animTimer = 0
+    end
+end
+
+----------------
+-- CONSTRUCTOR --
+----------------
+
 function Player.new(x, y)
     local self = setmetatable({}, Player)
 
-    -- Position & movement
     self.x = x
     self.y = y
     self.frameWidth = 32
     self.frameHeight = 46
-    self.scale = 3                 -- sprite scaling
-    self.w = self.frameWidth * self.scale   -- collision width
-    self.h = self.frameHeight * self.scale  -- collision height
+    self.scale = 3
+    self.w = self.frameWidth * self.scale
+    self.h = self.frameHeight * self.scale
+
     self.speed = 200
     self.vy = 0
+    self.gravity = 800
+    self.jumpForce = -400
     self.onGround = false
     self.facing = 1 -- 1 = right, -1 = left
 
-    -- Gravity
-    self.gravity = 800
-
-    -- Load sprite sheet
-    
+    -- Load sprite
     self.sprite = love.graphics.newImage("assets/sprites/goku_sprite.png")
     self.sprite:setFilter("nearest", "nearest")
+
     -- Build quads
     self:generateQuads()
 
-    -- Animations table
+    -- Animations with natural facing of the frame
+    -- Adjust the facing for your sheet frames: "right" or "left"
     self.animations = {
-        idle = self:createAnimation(1,3, 0.2),
-        run  = self:createAnimation(4, 6, 0.2),
-        jump = self:createAnimation(7,9,0.2),
+        idle = self:createAnimation(1, 3, 0.2, "right"),
+        run  = self:createAnimation(4, 6, 0.2, "left"),
+        jump = self:createAnimation(7, 9, 0.2, "right") 
     }
 
     self.currentAnim = self.animations.idle
@@ -41,7 +61,10 @@ function Player.new(x, y)
     return self
 end
 
--- Generate quads from sprite sheet
+------------------------
+-- QUAD GENERATION    --
+------------------------
+
 function Player:generateQuads()
     self.quads = {}
     local sheetWidth, sheetHeight = self.sprite:getWidth(), self.sprite:getHeight()
@@ -62,42 +85,42 @@ function Player:generateQuads()
     end
 end
 
--- Create an animation
-function Player:createAnimation(startFrame, endFrame, speed)
-    return {start = startFrame, finish = endFrame, speed = speed}
-end
+------------------------
+-- MAIN UPDATE LOOP   --
+------------------------
 
--- Change current animation
-function Player:setAnimation(name)
-    if self.currentAnim ~= self.animations[name] then
-        self.currentAnim = self.animations[name]
-        self.animFrame = self.currentAnim.start
-        self.animTimer = 0
-    end
-end
-
--- Update player
 function Player:update(dt, platforms)
-    -- Horizontal movement
     local moving = false
+
+    -- Movement
     if love.keyboard.isDown("left", "a") then
-    self.x = self.x - self.speed * dt
-    self.facing = 1
-    self:setAnimation("run")
-    moving = true
+        self.x = self.x - self.speed * dt
+        self.facing = -1
+        if self.onGround then self:setAnimation("run") end
+        moving = true
+
     elseif love.keyboard.isDown("right", "d") then
-    self.x = self.x + self.speed * dt
-    self.facing = -1
-    self:setAnimation("run")
-    moving = true
-    else
+        self.x = self.x + self.speed * dt
+        self.facing = 1
+        if self.onGround then self:setAnimation("run") end
+        moving = true
+    end
+
+    if not moving and self.onGround then
         self:setAnimation("idle")
+    end
+
+    -- Jump input
+    if love.keyboard.isDown("space") and self.onGround then
+        self.vy = self.jumpForce
+        self.onGround = false
+        self:setAnimation("jump")
     end
 
     -- Gravity
     self.vy = self.vy + self.gravity * dt
 
-    -- Swept vertical collision
+    -- Collision
     local futureY = self.y + self.vy * dt
     self.onGround = false
 
@@ -115,14 +138,11 @@ function Player:update(dt, platforms)
 
     self.y = futureY
 
-    -- Prevent falling below screen
-    if self.y + self.h > 1080 then
-        self.y = 1080 - self.h
-        self.vy = 0
-        self.onGround = true
+    if not self.onGround then
+        self:setAnimation("jump")
     end
 
-    -- Animation timer
+    -- Animation ticking
     self.animTimer = self.animTimer + dt
     if self.animTimer > self.currentAnim.speed then
         self.animTimer = self.animTimer - self.currentAnim.speed
@@ -133,21 +153,38 @@ function Player:update(dt, platforms)
     end
 end
 
+------------------
+-- DRAW PLAYER  --
+------------------
 
--- Draw player
 function Player:draw()
     love.graphics.setColor(1, 1, 1)
 
-    local scaleX = self.scale * self.facing
+    local anim = self.currentAnim
+    local naturalFacing = anim.facing or "right"
+
+    -- Flip only if player facing opposite of natural frame
+    local flip = false
+    if (self.facing == 1 and naturalFacing == "left") or
+       (self.facing == -1 and naturalFacing == "right") then
+        flip = true
+    end
+
+    local sx = flip and -self.scale or self.scale
+    local sy = self.scale
+    local ox = self.frameWidth / 2
+    local oy = self.frameHeight / 2
 
     love.graphics.draw(
         self.sprite,
         self.quads[self.animFrame],
-        self.x + (self.facing == -1 and self.frameWidth * self.scale or 0),
-        self.y,
+        self.x + self.w / 2,
+        self.y + self.h / 2,
         0,
-        scaleX,
-        self.scale
+        sx,
+        sy,
+        ox,
+        oy
     )
 end
 
